@@ -1,26 +1,66 @@
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QPixmap, QPainter
+import json
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QPixmap, QPainter, QTransform
 from PySide6.QtWidgets import QWidget, QApplication
 from pathlib import Path
 
-image = Path(__file__).parent / 'cat.png'
+root = Path(__file__).parent.parent / "assets" / "skins"
+
+def load_skin(name):
+    image = root / name
+    meta = json.loads((image / "skin.json").read_text(encoding="utf-8"))
+    frames = {
+        anim: [QPixmap(str(image / anim / f"{i:02}.PNG")) for i in range(n)]
+        for anim, n in meta["frames"].items()
+    }
+    return frames, meta["fps"]
+
 
 class Pet(QWidget):
     def __init__(self):
         super().__init__()
+
         screen = QApplication.primaryScreen()
         size = screen.size()
+
+        walk_screen = screen.availableGeometry()
+        self.floor = walk_screen.bottom() - self.height() + 1
+        self.move(walk_screen.left() + 200, self.floor)
+
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint
             | Qt.WindowType.WindowStaysOnTopHint
             | Qt.WindowType.Tool
 
         )
-
+        self.frames, fps = load_skin("cat")  #возращает в tuple и передает frames[0], fps[1]
+        self.state, self.i, self.dir = "idle", 0, 1
+        self.tick = QTimer(); self.tick.timeout.connect(self._next); self.tick.start(1000 // (fps - 5))
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.resize(size) # get_screen_resolution() возращает в tuple
-        self.pix = QPixmap(image)
+        self.resize(size) #возращает в tuple
+        self.mover = QTimer(self); self.mover.timeout.connect(self._step); self.mover.start(16)
+
+    def _next(self):
+        self.i =  (self.i + 1) % len(self.frames[self.state]); self.update()
+
+
+    def _step(self):
+        if self.state != "walk": return
+        s = QApplication.primaryScreen().availableGeometry()
+        x = self.x() + 2 * self.dir
+        if x < s.left(): x, self.dir = s.left(), 1
+        if x > s.right() - self.width(): x, self.dir = s.right(), -1
+        self.move(x, self.floor)
+
 
     def paintEvent(self, _):
+        pm = self.frames[self.state][self.i  % len(self.frames[self.state])]
+        if self.dir < 0:
+            pm  = pm.transformed(QTransform().scale(-1, 1))
         p = QPainter(self)
-        p.drawPixmap(0, 0, self.pix)
+        p.setRenderHints(QPainter.RenderHint.SmoothPixmapTransform) # сглаживание
+        w = int(pm.width() * 0.5)
+        h = int(pm.height() * 0.5)
+
+        p.drawPixmap(0, 0, w, h,  pm)
+

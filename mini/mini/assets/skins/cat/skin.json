@@ -1,0 +1,8 @@
+{
+  "fps": 10,
+  "frames": {
+    "idle" : 6,
+    "think" : 4,
+    "walk": 6
+  }
+}
