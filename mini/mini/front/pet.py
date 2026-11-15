@@ -1,10 +1,16 @@
 import json
-from PySide6.QtCore import Qt, QTimer
+import random
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QPixmap, QPainter, QTransform
 from PySide6.QtWidgets import QWidget, QApplication
 from pathlib import Path
 
 root = Path(__file__).parent.parent / "assets" / "skins"
+
+WEIGHTS = {
+    "walk": 40, "idle": 15
+}
+
 
 def load_skin(name):
     image = root / name
@@ -17,11 +23,16 @@ def load_skin(name):
 
 
 class Pet(QWidget):
+    stateCharged = Signal(str)
+
     def __init__(self):
         super().__init__()
-
+        SCALE = 0.5
         screen = QApplication.primaryScreen()
         size = screen.size()
+        self.frames, fps = load_skin("cat")#возращает в tuple и передает frames[0], fps[1]
+        pm = self.frames["idle"][0]
+        self.resize(int(pm.width() * SCALE), int(pm.height() * SCALE))
 
         walk_screen = screen.availableGeometry()
         self.floor = walk_screen.bottom() - self.height() + 1
@@ -33,11 +44,13 @@ class Pet(QWidget):
             | Qt.WindowType.Tool
 
         )
-        self.frames, fps = load_skin("cat")  #возращает в tuple и передает frames[0], fps[1]
+        self.brain = QTimer(self); self.brain.setSingleShot(True)
+        self.brain.timeout.connect(self.pick); self.pick()
+
+
         self.state, self.i, self.dir = "idle", 0, 1
         self.tick = QTimer(); self.tick.timeout.connect(self._next); self.tick.start(1000 // (fps - 5))
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.resize(size) #возращает в tuple
         self.mover = QTimer(self); self.mover.timeout.connect(self._step); self.mover.start(16)
 
     def _next(self):
@@ -45,22 +58,35 @@ class Pet(QWidget):
 
 
     def _step(self):
+        print(self.state, self.x(), self.y(), self.width(), self.dir)
         if self.state != "walk": return
         s = QApplication.primaryScreen().availableGeometry()
         x = self.x() + 2 * self.dir
-        if x < s.left(): x, self.dir = s.left(), 1
-        if x > s.right() - self.width(): x, self.dir = s.right(), -1
+        if x < s.left():
+            x, self.dir = s.left(), 1
+        if x > s.right() - self.width():
+            x, self.dir = s.right() - self.width(), -1
         self.move(x, self.floor)
 
+    def set_state(self, s, ms=3000):
+        self.state, self.i = s, 0
+        if s == "walk": self.dir = random.choice([1, -1])
+        self.brain.start(ms)
+        self.stateCharged.emit(s)
+
+
+    def pick(self):
+        s = random.choices(list(WEIGHTS), list(WEIGHTS.values()))[0]
+        self.set_state(s, random.randint(2500, 6000))
 
     def paintEvent(self, _):
         pm = self.frames[self.state][self.i  % len(self.frames[self.state])]
         if self.dir < 0:
             pm  = pm.transformed(QTransform().scale(-1, 1))
         p = QPainter(self)
+        print(self.state, self.i, pm.isNull(), pm.size())
         p.setRenderHints(QPainter.RenderHint.SmoothPixmapTransform) # сглаживание
         w = int(pm.width() * 0.5)
         h = int(pm.height() * 0.5)
-
         p.drawPixmap(0, 0, w, h,  pm)
 
