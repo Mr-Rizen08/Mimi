@@ -58,7 +58,6 @@ class Pet(QWidget):
 
 
     def _step(self):
-        print(self.state, self.x(), self.y(), self.width(), self.dir)
         if self.state != "walk": return
         s = QApplication.primaryScreen().availableGeometry()
         x = self.x() + 2 * self.dir
@@ -84,7 +83,6 @@ class Pet(QWidget):
         if self.dir < 0:
             pm  = pm.transformed(QTransform().scale(-1, 1))
         p = QPainter(self)
-        print(self.state, self.i, pm.isNull(), pm.size())
         p.setRenderHints(QPainter.RenderHint.SmoothPixmapTransform) # сглаживание
         w = int(pm.width() * 0.5)
         h = int(pm.height() * 0.5)
