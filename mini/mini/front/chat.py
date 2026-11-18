@@ -12,8 +12,7 @@ class ChatWindow(QWidget):
     action = Signal(str)
     answered = Signal()
 
-    def init(self, model="qwen3.5:9b"):
-        print("Chatwin")
+    def __init__(self, model="qwen3.5:9b"):
         super().__init__()
         self.setWindowTitle("Mini")
         self.resize(360, 420)
@@ -53,7 +52,6 @@ class ChatWindow(QWidget):
             self.acted = True
             self.action.emit(m.group(1))
         self.render(TAG.sub("", self.buf))
-
     def on_done(self):
         self.history.append({"role": "assistant", "content": self.buf})
         self.text += f"Mini: {TAG.sub('', self.buf)}\n"
@@ -63,6 +61,7 @@ class ChatWindow(QWidget):
         self.text += f"[ошибка] {msg}\n"
         self.render(""); self.busy = False; self.answered.emit()
 
+        print(msg)
     def render(self, current):
         self.log.setPlainText(self.text + (f"Мini: {current}" if current else ""))
         sb = self.log.verticalScrollBar(); sb.setValue(sb.maximum())
