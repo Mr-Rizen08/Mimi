@@ -6,9 +6,9 @@ from PySide6.QtWidgets import QWidget, QApplication
 from pathlib import Path
 
 root = Path(__file__).parent.parent / "assets" / "skins"
-
+SCALE = 0.5
 WEIGHTS = {
-    "walk": 40, "idle": 15
+    "walk": 40, "idle": 15, "think": 15, "play": 10
 }
 
 
@@ -24,13 +24,13 @@ def load_skin(name):
 
 class Pet(QWidget):
     stateCharged = Signal(str)
+    clicked = Signal()
 
     def __init__(self):
         super().__init__()
-        SCALE = 0.5
+
         screen = QApplication.primaryScreen()
-        size = screen.size()
-        self.frames, fps = load_skin("cat")#возращает в tuple и передает frames[0], fps[1]
+        self.frames, fps = load_skin("cat") #возращает в tuple и передает frames[0], fps[1]
         pm = self.frames["idle"][0]
         self.resize(int(pm.width() * SCALE), int(pm.height() * SCALE))
 
@@ -49,9 +49,13 @@ class Pet(QWidget):
 
 
         self.state, self.i, self.dir = "idle", 0, 1
-        self.tick = QTimer(); self.tick.timeout.connect(self._next); self.tick.start(1000 // (fps - 5))
+        self.tick = QTimer(); self.tick.timeout.connect(self._next); self.tick.start(1000 // fps )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.mover = QTimer(self); self.mover.timeout.connect(self._step); self.mover.start(16)
+
+        self._press = None
+        self._off = None
+        self._dragging = False
 
     def _next(self):
         self.i =  (self.i + 1) % len(self.frames[self.state]); self.update()
@@ -84,7 +88,34 @@ class Pet(QWidget):
             pm  = pm.transformed(QTransform().scale(-1, 1))
         p = QPainter(self)
         p.setRenderHints(QPainter.RenderHint.SmoothPixmapTransform) # сглаживание
-        w = int(pm.width() * 0.5)
-        h = int(pm.height() * 0.5)
+        w = int(pm.width() * SCALE)
+        h = int(pm.height() * SCALE)
         p.drawPixmap(0, 0, w, h,  pm)
+
+    def mousePressEvent(self, e):
+        if e.button() == Qt.MouseButton.LeftButton: return
+        self._press = e.globalPosition().toPoint(); self._moved = False
+        self._off = self._press - self.pos()
+        self._dragging = False
+
+    def mouseMoveEvent(self, e):
+        if self._press is None: return
+        p = e.globalPosition().toPoint()
+        if not self._dragging and (p - self._press).manhattanLength() < 5:
+            return
+        self._dragging = True
+        self.move(p- self._off)
+
+    def mouseReleaseEvent(self, e):
+        if self._press is None: return
+        if self._dragging:
+            self.floor = self.y()
+        else:
+            self.clicked.emit()
+        self._press = None
+        self._dragging = False
+
+
+
+
 

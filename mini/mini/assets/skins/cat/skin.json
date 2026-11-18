@@ -1,8 +1,9 @@
 {
-  "fps": 10,
+  "fps": 5,
   "frames": {
     "idle" : 6,
     "walk": 6,
-    "think" : 4
+    "think" : 4,
+    "play": 6
   }
 }
